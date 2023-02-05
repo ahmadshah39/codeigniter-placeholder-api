@@ -10,7 +10,7 @@ $routes = Services::routes();
  * Router Setup
  * --------------------------------------------------------------------
  */
-$routes->setDefaultNamespace('App\Controllers');
+$routes->setDefaultNamespace('App\Controllers\Web');
 $routes->setDefaultController('Home');
 $routes->setDefaultMethod('index');
 $routes->setTranslateURIDashes(false);
@@ -29,7 +29,18 @@ $routes->set404Override();
 
 // We get a performance increase by specifying the default
 // route since we don't have to scan directories.
-$routes->get('/', 'Home::index');
+
+$routes->group('', ['namespace' => 'App\Controllers\Web'], static function ($routes) {
+    if (is_file(APPPATH . 'Routes/web/web.php')) {
+            require APPPATH . 'Routes/web/web.php';
+    }
+});
+
+$routes->group('api', ['namespace' => 'App\Controllers\Api'], static function ($routes) {
+    if (is_file(APPPATH . 'Routes/api/api.php')) {
+            require APPPATH . 'Routes/api/api.php';
+    }
+});
 
 /*
  * --------------------------------------------------------------------
