@@ -17,7 +17,15 @@ class UserController extends ResourceController
                     'last_name' => 'required|alpha_numeric_space',
                     'password'  => 'required',
                     'confirm_password'  => 'required|matches[password]',
-                ]
+        ],
+        "create" => [
+                    'user_name' => "required|is_unique[users.user_name,id,{id}]",
+                    'email' => "required|is_unique[users.email,id,{id}]",
+                    'first_name' => 'required|alpha_numeric_space',
+                    'last_name' => 'required|alpha_numeric_space',
+                    'password'  => 'required',
+                    'confirm_password'  => 'required|matches[password]',
+        ],
     ];
 
     /**
@@ -39,6 +47,7 @@ class UserController extends ResourceController
             return $this->respond(['error'=>$e->getMessage()], $e->getCode());
         }
     }
+
 
     /**
      * Return the properties of a resource object
@@ -68,19 +77,16 @@ class UserController extends ResourceController
      */
     public function create()
     {
-        try {
-            if (!$this->validate($this->rules['create'])) {
-                return $this->respond(['error'=> $this->validator->getErrors()], 403);
-            }
-
-           $id =  $this->model->insert((array) $this->request->getJson());
-           return $this->respond($id, 200);
-        } catch (\Throwable $th) {
-            
+        if (!$this->validate($this->rules['create'])) {
+            return $this->respond(['error'=> $this->validator->getErrors()], 403);
         }
-        
-        // var_dump((array) $this->request->getJson());
 
+        $id = $this->model->insert((array) $this->request->getJson(), true);
+
+        return $this->respond([
+            'status' => $id,
+            'message' => $id ? 'User created successfully' : "Something went wrong"
+        ], 200);
     }
 
     /**
@@ -90,7 +96,23 @@ class UserController extends ResourceController
      */
     public function update($id = null)
     {
-        //
+        if($id == null){
+            return $this->respond([
+                'status' => 0,
+                'message' => "Invalid request..."
+            ], 403);
+        }
+
+        if (!$this->validate($this->rules['create'])) {
+            return $this->respond(['error'=> $this->validator->getErrors()], 403);
+        }
+
+        $id = $this->model->update($id, (array) $this->request->getJson(), true);
+
+        return $this->respond([
+            'status' => $id,
+            'message' => $id ? 'User updated successfully' : "Something went wrong"
+        ], 200);
     }
 
     /**
@@ -100,6 +122,18 @@ class UserController extends ResourceController
      */
     public function delete($id = null)
     {
-        //
+        if($id == null){
+            return $this->respond([
+                'status' => 0,
+                'message' => "Invalid request..."
+            ], 403);
+        }
+
+        $deleted = $this->model->delete(12);
+
+        return $this->respond([
+            'status' => $deleted,
+            'message' => $deleted ? 'User deleted successfully' : "Something went wrong"
+        ], 200);
     }
 }
