@@ -4,20 +4,20 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class UserModel extends Model
+class PhotoModel extends Model
 {
     protected $DBGroup          = 'default';
-    protected $table            = 'users';
+    protected $table            = 'photos';
     protected $primaryKey       = 'id';
     protected $useAutoIncrement = true;
     protected $insertID         = 0;
     protected $returnType       = 'array';
     protected $useSoftDeletes   = false;
     protected $protectFields    = true;
-    protected $allowedFields    = ["user_name", 'first_name', 'last_name', 'email', "password"];
+    protected $allowedFields    = ['title', 'url', 'thumbnail_url', 'album_id'];
 
     // Dates
-    protected $useTimestamps = true;
+    protected $useTimestamps = false;
     protected $dateFormat    = 'datetime';
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
@@ -31,36 +31,12 @@ class UserModel extends Model
 
     // Callbacks
     protected $allowCallbacks = true;
-    protected $beforeInsert   = ['hashPassword'];
+    protected $beforeInsert   = [];
     protected $afterInsert    = [];
-    protected $beforeUpdate   = ['hashPassword'];
+    protected $beforeUpdate   = [];
     protected $afterUpdate    = [];
     protected $beforeFind     = [];
-    protected $afterFind      = ['hideFields'];
+    protected $afterFind      = [];
     protected $beforeDelete   = [];
     protected $afterDelete    = [];
-
-    protected function hashPassword(array $data)
-    {
-        if (! isset($data['data']['password'])) {
-            return $data;
-        }
-
-        $data['data']['password'] = password_hash($data['data']['password'], PASSWORD_DEFAULT);
-
-        return $data;
-    }
-    
-    protected function hideFields(array $data)
-    {
-        if (! isset($data['data']['password'])) {
-            return $data;
-        }
-        else{
-            unset($data['data']['password']);
-        }
-                
-        return $data;
-    }
-
 }

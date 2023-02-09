@@ -4,39 +4,26 @@ namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
 
-class UserController extends ResourceController
+class AlbumController extends ResourceController
 {
-    protected $modelName = 'App\Models\UserModel';
+    protected $modelName = 'App\Models\AlbumModel';
     
     protected $format    = 'json';
+
+    protected $sortable = ["id","title"];
+
     protected $rules = [
         "create" => [
-                    'user_name' => "required|is_unique[users.user_name]",
-                    'email' => "required|is_unique[users.email]",
-                    'first_name' => 'required|alpha_numeric_space',
-                    'last_name' => 'required|alpha_numeric_space',
-                    'password'  => 'required',
-                    'confirm_password'  => 'required|matches[password]',
+            'title' => 'required',
+            'user_id' => 'required',
         ],
         "update" => [
-                    'user_name' => "required|is_unique[users.user_name,id,{id}]",
-                    'email' => "required|is_unique[users.email,id,{id}]",
-                    'first_name' => 'required|alpha_numeric_space',
-                    'last_name' => 'required|alpha_numeric_space',
-                    'password'  => 'required',
-                    'confirm_password'  => 'required|matches[password]',
+            'title' => 'required',
+            'user_id' => 'required',
         ],
         "patch" => [
-                    'user_name' => "is_unique[users.user_name,id,{id}]",
-                    'email' => "is_unique[users.email,id,{id}]",
-                    'first_name' => 'if_exist|alpha_numeric_space',
-                    'last_name' => 'if_exist|alpha_numeric_space',
         ],
     ];
-
-    protected $sortable = ["id", "user_name", 'first_name', 'last_name', 'email'];
-
-    protected $filterable = ["id", "user_name", 'first_name', 'last_name', 'email'];
 
     /**
      * Return an array of resource objects, themselves in array format
@@ -45,36 +32,33 @@ class UserController extends ResourceController
      */
     public function index()
     {
-
         $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
         $sort_by = in_array($this->request->getVar('sort_by'), $this->sortable) ? $this->request->getVar('sort_by') : 'id';
         $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
-        $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
-        $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
+        $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 50;
+        $page = $this->request->getVar('page') ? $this->request->getVar('page') : 50;
 
         try {
-            $users = $this->model->select(["id", "user_name", 'first_name', 'last_name', 'email'])->orderBy($sort_by, $sort);
+            $albums = $this->model->select(["id", "title", "user_id"])->orderBy($sort_by, $sort);
 
             if($query){
-                $users = $users->like('user_name', $query)
-                               ->orLike('first_name', $query)
-                               ->orLike('last_name', $query)
-                               ->orLike('email', $query);
+                $albums = $albums->where('id', $query)
+                               ->orWhere('user_id', $query)
+                               ->orLike('title', $query);
             }
             
-           $users = $users->paginate($limit, $page);
+           $albums = $albums->paginate($limit, $page);
 
-            if (!$users) {
+            if (!$albums) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
-            return $this->respond($users, 200);
+            return $this->respond($albums, 200);
 
         } catch (\Exception $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
             return $this->respond(['error'=>$e->getMessage()], $e->getCode());
         }
     }
-
 
     /**
      * Return the properties of a resource object
@@ -85,11 +69,11 @@ class UserController extends ResourceController
     {
         try {
 
-            $user = $this->model->find($id);
-            if (!$user) {
+            $album = $this->model->find($id);
+            if (!$album) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
-            return $this->respond($user, 200);
+            return $this->respond($album, 200);
 
         } catch (\Exception $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
@@ -112,7 +96,7 @@ class UserController extends ResourceController
 
         return $this->respond([
             'status' => $id,
-            'message' => $id ? 'User created successfully' : "Something went wrong"
+            'message' => $id ? 'Album created successfully' : "Something went wrong"
         ], 200);
     }
 
@@ -140,7 +124,7 @@ class UserController extends ResourceController
 
         return $this->respond([
             'status' => $id,
-            'message' => $id ? 'User updated successfully' : "Something went wrong"
+            'message' => $id ? 'Album updated successfully' : "Something went wrong"
         ], 200);
     }
 
@@ -162,7 +146,7 @@ class UserController extends ResourceController
 
         return $this->respond([
             'status' => $deleted,
-            'message' => $deleted ? 'User deleted successfully' : "Something went wrong"
+            'message' => $deleted ? 'Album deleted successfully' : "Something went wrong"
         ], 200);
     }
 }
