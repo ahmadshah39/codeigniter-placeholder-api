@@ -3,12 +3,18 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use \CodeIgniter\HTTP\ResponseInterface;
 
 class UserController extends ResourceController
 {
     protected $modelName = 'App\Models\UserModel';
     
     protected $format    = 'json';
+
+    protected $resourceFields = ["id", "user_name", 'first_name', 'last_name', 'email'];
+
+    protected $helpers = ['global'];
+
     protected $rules = [
         "create" => [
                     'user_name' => "required|is_unique[users.user_name]",
@@ -34,26 +40,22 @@ class UserController extends ResourceController
         ],
     ];
 
-    protected $sortable = ["id", "user_name", 'first_name', 'last_name', 'email'];
-
-    protected $filterable = ["id", "user_name", 'first_name', 'last_name', 'email'];
-
     /**
      * Return an array of resource objects, themselves in array format
      *
      * @return mixed
      */
-    public function index()
+    public function index():ResponseInterface
     {
 
         $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->sortable) ? $this->request->getVar('sort_by') : 'id';
+        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
         $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
         $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
         $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
 
         try {
-            $users = $this->model->select(["id", "user_name", 'first_name', 'last_name', 'email'])->orderBy($sort_by, $sort);
+            $users = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
 
             if($query){
                 $users = $users->like('user_name', $query)
@@ -65,13 +67,13 @@ class UserController extends ResourceController
            $users = $users->paginate($limit, $page);
 
             if (!$users) {
-                throw \App\Exceptions\NotFoundException::forRecordNotFound();
+                throw \App\Exceptions\NotFoundException::forRecordNotFound('No users found...');
             }
             return $this->respond($users, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -81,11 +83,11 @@ class UserController extends ResourceController
      *
      * @return mixed
      */
-    public function show($id = null)
+    public function show($id = null):ResponseInterface
     {
         try {
 
-            $user = $this->model->find($id);
+            $user = $this->model->select($this->resourceFields)->find($id);
             if (!$user) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
@@ -102,7 +104,7 @@ class UserController extends ResourceController
      *
      * @return mixed
      */
-    public function create()
+    public function create():ResponseInterface
     {
         if (!$this->validate($this->rules['create'])) {
             return $this->respond(['error'=> $this->validator->getErrors()], 403);
@@ -121,7 +123,7 @@ class UserController extends ResourceController
      *
      * @return mixed
      */
-    public function update($id = null)
+    public function update($id = null):ResponseInterface
     {
         $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
 
@@ -149,7 +151,7 @@ class UserController extends ResourceController
      *
      * @return mixed
      */
-    public function delete($id = null)
+    public function delete($id = null):ResponseInterface
     {
         if($id == null){
             return $this->respond([

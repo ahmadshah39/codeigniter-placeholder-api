@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use \CodeIgniter\HTTP\ResponseInterface;
 
 class TodoController extends ResourceController
 {
@@ -10,9 +11,11 @@ class TodoController extends ResourceController
 
     protected $format    = 'json';
 
-    protected $sortable = ['id', 'title', 'completed', 'user_id'];
+    protected $resourceFields = ['id', 'title', 'completed', 'user_id'];
 
     protected $filterable = ["completed"];
+
+    protected $helpers = ['global'];
 
     protected $rules = [
         "create" => [
@@ -35,16 +38,21 @@ class TodoController extends ResourceController
      *
      * @return mixed
      */
-    public function index()
+    public function index():ResponseInterface
     {
         $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->sortable) ? $this->request->getVar('sort_by') : 'id';
+        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
         $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
         $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 10;
         $page = $this->request->getVar('page') ? $this->request->getVar('page') : 10;
+        $user_id = $this->request->getVar('user_id') ? $this->request->getVar('user_id') : null;
 
         try {
-            $todos = $this->model->select(['id', 'title', 'completed', 'user_id'])->orderBy($sort_by, $sort);
+            $todos = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
+
+            if($user_id){
+                $todos = $todos->where('user_id', $user_id);
+            }
 
             if($query){
                 $todos = $todos->like('title', $query);
@@ -57,9 +65,9 @@ class TodoController extends ResourceController
             }
             return $this->respond($todos, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -68,19 +76,19 @@ class TodoController extends ResourceController
      *
      * @return mixed
      */
-    public function show($id = null)
+    public function show($id = null):ResponseInterface
     {
         try {
 
-            $todo = $this->model->find($id);
+            $todo = $this->model->select($this->resourceFields)->find($id);
             if (!$todo) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
             return $this->respond($todo, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -89,7 +97,7 @@ class TodoController extends ResourceController
      *
      * @return mixed
      */
-    public function create()
+    public function create():ResponseInterface
     {
         if (!$this->validate($this->rules['create'])) {
             return $this->respond(['error'=> $this->validator->getErrors()], 403);
@@ -108,7 +116,7 @@ class TodoController extends ResourceController
      *
      * @return mixed
      */
-    public function update($id = null)
+    public function update($id = null):ResponseInterface
     {
         $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
 
@@ -136,7 +144,7 @@ class TodoController extends ResourceController
      *
      * @return mixed
      */
-    public function delete($id = null)
+    public function delete($id = null):ResponseInterface
     {
         if($id == null){
             return $this->respond([

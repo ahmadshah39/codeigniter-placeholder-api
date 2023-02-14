@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use \CodeIgniter\HTTP\ResponseInterface;
 
 class PhotoController extends ResourceController
 {
@@ -10,7 +11,9 @@ class PhotoController extends ResourceController
     
     protected $format    = 'json';
     
-    protected $sortable = ["id",'title', 'url', 'thumbnail_url', 'album_id'];
+    protected $resourceFields = ["id",'title', 'url', 'thumbnail_url', 'album_id'];
+
+    protected $helpers = ['global'];
     
     protected $rules = [
         "create" => [
@@ -37,23 +40,28 @@ class PhotoController extends ResourceController
      *
      * @return mixed
      */
-    public function index()
+    public function index():ResponseInterface
     {
         $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->sortable) ? $this->request->getVar('sort_by') : 'id';
+        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
         $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
         $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
         $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
+        $album_id = $this->request->getVar('album_id') ? $this->request->getVar('album_id') : null;
 
         try {
-            $photos = $this->model->select(["id",'title', 'url', 'thumbnail_url', 'album_id'])->orderBy($sort_by, $sort);
+            $photos = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
 
+            if($album_id){
+                $photos = $photos->where('album_id', $album_id);
+            }
             if($query){
-                $photos = $photos->where('id', $query)
-                                 ->orWhere('album_id', $query)
-                                 ->orLike('title', $query)
-                                 ->orLike('url', $query)
-                                 ->orLike('thumbnail_url', $query);
+                $photos = $photos->groupStart()
+                                    ->where('id', $query)
+                                    ->orLike('title', $query)
+                                    ->orLike('url', $query)
+                                    ->orLike('thumbnail_url', $query)
+                                 ->groupEnd();
             }
             
            $photos = $photos->paginate($limit, $page);
@@ -63,9 +71,9 @@ class PhotoController extends ResourceController
             }
             return $this->respond($photos, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -74,19 +82,19 @@ class PhotoController extends ResourceController
      *
      * @return mixed
      */
-    public function show($id = null)
+    public function show($id = null):ResponseInterface
     {
         try {
 
-            $photo = $this->model->find($id);
+            $photo = $this->model->select($this->resourceFields)->find($id);
             if (!$photo) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
             return $this->respond($photo, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -95,7 +103,7 @@ class PhotoController extends ResourceController
      *
      * @return mixed
      */
-    public function create()
+    public function create():ResponseInterface
     {
         if (!$this->validate($this->rules['create'])) {
             return $this->respond(['error'=> $this->validator->getErrors()], 403);
@@ -114,7 +122,7 @@ class PhotoController extends ResourceController
      *
      * @return mixed
      */
-    public function update($id = null)
+    public function update($id = null):ResponseInterface
     {
         $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
 
@@ -142,7 +150,7 @@ class PhotoController extends ResourceController
      *
      * @return mixed
      */
-    public function delete($id = null)
+    public function delete($id = null):ResponseInterface
     {
         if($id == null){
             return $this->respond([

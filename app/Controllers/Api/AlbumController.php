@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use \CodeIgniter\HTTP\ResponseInterface;
 
 class AlbumController extends ResourceController
 {
@@ -10,7 +11,9 @@ class AlbumController extends ResourceController
     
     protected $format    = 'json';
 
-    protected $sortable = ["id","title"];
+    protected $resourceFields = ["id","title", 'user_id'];
+
+    protected $helpers = ['global'];
 
     protected $rules = [
         "create" => [
@@ -30,21 +33,27 @@ class AlbumController extends ResourceController
      *
      * @return mixed
      */
-    public function index()
+    public function index():ResponseInterface
     {
         $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->sortable) ? $this->request->getVar('sort_by') : 'id';
+        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
         $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
         $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 50;
         $page = $this->request->getVar('page') ? $this->request->getVar('page') : 50;
+        $user_id = $this->request->getVar('user_id') ? $this->request->getVar('user_id') : null;
 
         try {
-            $albums = $this->model->select(["id", "title", "user_id"])->orderBy($sort_by, $sort);
+            $albums = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
+
+            if($user_id){
+                $albums = $albums->where('user_id', $user_id);
+            }
 
             if($query){
-                $albums = $albums->where('id', $query)
-                               ->orWhere('user_id', $query)
-                               ->orLike('title', $query);
+                $albums = $albums->groupStart()
+                                    ->where('id', $query)
+                                    ->orLike('title', $query)
+                                 ->groupEnd();
             }
             
            $albums = $albums->paginate($limit, $page);
@@ -54,9 +63,9 @@ class AlbumController extends ResourceController
             }
             return $this->respond($albums, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -65,19 +74,19 @@ class AlbumController extends ResourceController
      *
      * @return mixed
      */
-    public function show($id = null)
+    public function show($id = null):ResponseInterface
     {
         try {
 
-            $album = $this->model->find($id);
+            $album = $this->model->select($this->resourceFields)->find($id);
             if (!$album) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
             return $this->respond($album, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -86,7 +95,7 @@ class AlbumController extends ResourceController
      *
      * @return mixed
      */
-    public function create()
+    public function create():ResponseInterface
     {
         if (!$this->validate($this->rules['create'])) {
             return $this->respond(['error'=> $this->validator->getErrors()], 403);
@@ -105,7 +114,7 @@ class AlbumController extends ResourceController
      *
      * @return mixed
      */
-    public function update($id = null)
+    public function update($id = null):ResponseInterface
     {
         $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
 
@@ -133,7 +142,7 @@ class AlbumController extends ResourceController
      *
      * @return mixed
      */
-    public function delete($id = null)
+    public function delete($id = null):ResponseInterface
     {
         if($id == null){
             return $this->respond([

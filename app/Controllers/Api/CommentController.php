@@ -3,6 +3,7 @@
 namespace App\Controllers\Api;
 
 use CodeIgniter\RESTful\ResourceController;
+use \CodeIgniter\HTTP\ResponseInterface;
 
 class CommentController extends ResourceController
 {
@@ -10,8 +11,10 @@ class CommentController extends ResourceController
     
     protected $format    = 'json';
     
-    protected $sortable = ["id",'name','email','body','post_id'];
+    protected $resourceFields = ["id",'name','email','body','post_id'];
     
+    protected $helpers = ['global'];
+
     protected $rules = [
         "create" => [
             'title' => "required",
@@ -37,22 +40,29 @@ class CommentController extends ResourceController
      *
      * @return mixed
      */
-    public function index()
+    public function index():ResponseInterface
     {
         $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->sortable) ? $this->request->getVar('sort_by') : 'id';
+        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
         $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
         $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
         $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
+        $post_id = $this->request->getVar('post_id') ? $this->request->getVar('post_id') : null;
 
         try {
-            $photos = $this->model->select(["id",'title', 'url', 'thumbnail_url', 'album_id'])->orderBy($sort_by, $sort);
+            $photos = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
 
+            if($post_id){
+                $photos = $photos->where('post_id', $post_id);
+            }
+            
             if($query){
-                $photos = $photos->like('user_name', $query)
-                               ->orLike('first_name', $query)
-                               ->orLike('last_name', $query)
-                               ->orLike('email', $query);
+                $photos = $photos->groupStart()
+                                    ->where('id', $query)
+                                    ->orLike('name', $query)
+                                    ->orLike('body', $query)
+                                    ->orLike('email', $query)
+                                ->groupEnd();
             }
             
            $photos = $photos->paginate($limit, $page);
@@ -62,9 +72,9 @@ class CommentController extends ResourceController
             }
             return $this->respond($photos, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -73,19 +83,19 @@ class CommentController extends ResourceController
      *
      * @return mixed
      */
-    public function show($id = null)
+    public function show($id = null):ResponseInterface
     {
         try {
 
-            $photo = $this->model->find($id);
+            $photo = $this->model->select($this->resourceFields)->find($id);
             if (!$photo) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
             return $this->respond($photo, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -94,7 +104,7 @@ class CommentController extends ResourceController
      *
      * @return mixed
      */
-    public function create()
+    public function create():ResponseInterface
     {
         if (!$this->validate($this->rules['create'])) {
             return $this->respond(['error'=> $this->validator->getErrors()], 403);
@@ -113,7 +123,7 @@ class CommentController extends ResourceController
      *
      * @return mixed
      */
-    public function update($id = null)
+    public function update($id = null):ResponseInterface
     {
         $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
 
@@ -141,7 +151,7 @@ class CommentController extends ResourceController
      *
      * @return mixed
      */
-    public function delete($id = null)
+    public function delete($id = null):ResponseInterface
     {
         if($id == null){
             return $this->respond([
