@@ -47,14 +47,14 @@ class UserController extends ResourceController
      */
     public function index():ResponseInterface
     {
-
-        $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
-        $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
-        $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
-        $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
-
         try {
+            
+            $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
+            $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
+            $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
+            $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
+            $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
+
             $users = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
 
             if($query){
@@ -86,6 +86,13 @@ class UserController extends ResourceController
     public function show($id = null):ResponseInterface
     {
         try {
+            
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
 
             $user = $this->model->select($this->resourceFields)->find($id);
             if (!$user) {
@@ -93,9 +100,9 @@ class UserController extends ResourceController
             }
             return $this->respond($user, 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], $e->getCode());
+            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
         }
     }
 
@@ -106,16 +113,23 @@ class UserController extends ResourceController
      */
     public function create():ResponseInterface
     {
-        if (!$this->validate($this->rules['create'])) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
+        try {
+
+            if (!$this->validate($this->rules['create'])) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+
+            $id = $this->model->insert((array) $this->request->getJson(), true);
+                //code...
+            return $this->respond([
+                'status' => $id,
+                'message' => $id ? 'User created successfully' : "Something went wrong"
+            ], 200);
+
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $id = $this->model->insert((array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'User created successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -125,25 +139,32 @@ class UserController extends ResourceController
      */
     public function update($id = null):ResponseInterface
     {
-        $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
-
-        if($id == null){
+        try {
+            
+            $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
+    
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+    
+            if (!$this->validate($this->rules[$request_method])) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+    
+            $id = $this->model->update($id, (array) $this->request->getJson(), true);
+    
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $id,
+                'message' => $id ? 'User updated successfully' : "Something went wrong"
+            ], 200);
+
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        if (!$this->validate($this->rules[$request_method])) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
-        }
-
-        $id = $this->model->update($id, (array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'User updated successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -153,18 +174,25 @@ class UserController extends ResourceController
      */
     public function delete($id = null):ResponseInterface
     {
-        if($id == null){
+        try {
+
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+    
+            $deleted = $this->model->delete($id);
+    
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $deleted,
+                'message' => $deleted ? 'User deleted successfully' : "Something went wrong"
+            ], 200);
+
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $deleted = $this->model->delete($id);
-
-        return $this->respond([
-            'status' => $deleted,
-            'message' => $deleted ? 'User deleted successfully' : "Something went wrong"
-        ], 200);
     }
 }

@@ -20,18 +20,18 @@ class CommentController extends ResourceController
             'title' => "required",
             'url' => "required|valid_url",
             'thumbnail_url' => "required|valid_url",
-            'album_id' => "required|int",
+            'post_id' => "required|int",
         ],
         "update" => [
             'title' => "required",
             'url' => "required|valid_url",
             'thumbnail_url' => "required|valid_url",
-            'album_id' => "required|int",
+            'post_id' => "required|int",
         ],
         "patch" => [
             'url' => "if_exist|valid_url",
             'thumbnail_url' => "if_exist|valid_url",
-            'album_id' => "if_exist|int",
+            'post_id' => "if_exist|is_natural_no_zero",
         ],
     ];
 
@@ -41,21 +41,22 @@ class CommentController extends ResourceController
      * @return mixed
      */
     public function index():ResponseInterface
-    {
-        $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
-        $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
-        $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
-        $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
-        $post_id = $this->request->getVar('post_id') ? $this->request->getVar('post_id') : null;
-
+    {        
         try {
+
+            $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
+            $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
+            $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
+            $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 100;
+            $page = $this->request->getVar('page') ? $this->request->getVar('page') : 100;
+            $post_id = $this->request->getVar('post_id') ? $this->request->getVar('post_id') : null;
+
             $photos = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
 
             if($post_id){
                 $photos = $photos->where('post_id', $post_id);
             }
-            
+
             if($query){
                 $photos = $photos->groupStart()
                                     ->where('id', $query)
@@ -72,9 +73,9 @@ class CommentController extends ResourceController
             }
             return $this->respond($photos, 200);
 
-        } catch (\Throwable $e) {
-            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
     }
 
@@ -87,15 +88,22 @@ class CommentController extends ResourceController
     {
         try {
 
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+
             $photo = $this->model->select($this->resourceFields)->find($id);
             if (!$photo) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
             return $this->respond($photo, 200);
 
-        } catch (\Throwable $e) {
-            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
     }
 
@@ -106,16 +114,23 @@ class CommentController extends ResourceController
      */
     public function create():ResponseInterface
     {
-        if (!$this->validate($this->rules['create'])) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
+        try {
+
+            if (!$this->validate($this->rules['create'])) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+    
+            $id = $this->model->insert((array) $this->request->getJson(), true);
+    
+            return $this->respond([
+                'status' => $id,
+                'message' => $id ? 'Photo created successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $id = $this->model->insert((array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'Photo created successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -125,25 +140,32 @@ class CommentController extends ResourceController
      */
     public function update($id = null):ResponseInterface
     {
-        $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
+        try {
 
-        if($id == null){
+            $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
+    
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+    
+            if (!$this->validate($this->rules[$request_method])) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+    
+            $id = $this->model->update($id, (array) $this->request->getJson(), true);
+    
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $id,
+                'message' => $id ? 'Photo updated successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        if (!$this->validate($this->rules[$request_method])) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
-        }
-
-        $id = $this->model->update($id, (array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'Photo updated successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -153,18 +175,25 @@ class CommentController extends ResourceController
      */
     public function delete($id = null):ResponseInterface
     {
-        if($id == null){
+        try {
+
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+    
+            $deleted = $this->model->delete($id);
+    
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $deleted,
+                'message' => $deleted ? 'Photo deleted successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $deleted = $this->model->delete($id);
-
-        return $this->respond([
-            'status' => $deleted,
-            'message' => $deleted ? 'Photo deleted successfully' : "Something went wrong"
-        ], 200);
     }
 }

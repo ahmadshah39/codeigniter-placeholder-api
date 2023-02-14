@@ -29,6 +29,8 @@ class TodoController extends ResourceController
             'user_id' => "required",
         ],
         "patch" => [
+            'title' => 'if_exist|string',
+            'user_id' => 'if_exist|is_natural_no_zero',
             'completed' => "if_exist|in_list[0,1]",
         ],
     ];
@@ -40,14 +42,15 @@ class TodoController extends ResourceController
      */
     public function index():ResponseInterface
     {
-        $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
-        $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
-        $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
-        $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 10;
-        $page = $this->request->getVar('page') ? $this->request->getVar('page') : 10;
-        $user_id = $this->request->getVar('user_id') ? $this->request->getVar('user_id') : null;
-
         try {
+
+            $sort = $this->request->getVar('sort') == ('DESC'|'desc') ? 'DESC' : 'ASC';
+            $sort_by = in_array($this->request->getVar('sort_by'), $this->resourceFields) ? $this->request->getVar('sort_by') : 'id';
+            $query = $this->request->getVar('query') ? $this->request->getVar('query') : null;
+            $limit = $this->request->getVar('limit') ? $this->request->getVar('limit') : 10;
+            $page = $this->request->getVar('page') ? $this->request->getVar('page') : 10;
+            $user_id = $this->request->getVar('user_id') ? $this->request->getVar('user_id') : null;
+
             $todos = $this->model->select($this->resourceFields)->orderBy($sort_by, $sort);
 
             if($user_id){
@@ -65,9 +68,9 @@ class TodoController extends ResourceController
             }
             return $this->respond($todos, 200);
 
-        } catch (\Throwable $e) {
-            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
     }
 
@@ -80,15 +83,23 @@ class TodoController extends ResourceController
     {
         try {
 
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+
+
             $todo = $this->model->select($this->resourceFields)->find($id);
             if (!$todo) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
             }
             return $this->respond($todo, 200);
 
-        } catch (\Throwable $e) {
-            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->respond(['error'=>$e->getMessage()], http_exception_code($e->getCode()));
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
     }
 
@@ -99,16 +110,23 @@ class TodoController extends ResourceController
      */
     public function create():ResponseInterface
     {
-        if (!$this->validate($this->rules['create'])) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
+        try {
+
+            if (!$this->validate($this->rules['create'])) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+
+            $id = $this->model->insert((array) $this->request->getJson(), true);
+
+            return $this->respond([
+                'status' => $id,
+                'message' => $id ? 'Todo created successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $id = $this->model->insert((array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'Todo created successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -118,25 +136,32 @@ class TodoController extends ResourceController
      */
     public function update($id = null):ResponseInterface
     {
-        $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
+        try {
 
-        if($id == null){
+            $request_method = $this->request->is('patch') ? 'patch' :  'update' ;
+
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+
+            if (!$this->validate($this->rules[$request_method])) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+
+            $id = $this->model->update($id, (array) $this->request->getJson(), true);
+
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $id,
+                'message' => $id ? 'Todo updated successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        if (!$this->validate($this->rules[$request_method])) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
-        }
-
-        $id = $this->model->update($id, (array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'Todo updated successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -146,18 +171,25 @@ class TodoController extends ResourceController
      */
     public function delete($id = null):ResponseInterface
     {
-        if($id == null){
+        try {
+
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+    
+            $deleted = $this->model->delete($id);
+    
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $deleted,
+                'message' => $deleted ? 'Todo deleted successfully' : "Something went wrong"
+            ], 200);
+
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $deleted = $this->model->delete($id);
-
-        return $this->respond([
-            'status' => $deleted,
-            'message' => $deleted ? 'Todo deleted successfully' : "Something went wrong"
-        ], 200);
     }
 }

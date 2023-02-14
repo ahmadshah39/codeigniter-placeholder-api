@@ -25,6 +25,8 @@ class PostController extends ResourceController
             'user_id' => "required",
         ],
         "patch" => [
+            'title' => 'if_exist|string',
+            'user_id' => 'if_exist|is_natural_no_zero',
         ],
     ];
 
@@ -80,6 +82,13 @@ class PostController extends ResourceController
     {
         try {
 
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+
             $post = $this->model->select($this->resourceFields)->find($id);
             if (!$post) {
                 throw \App\Exceptions\NotFoundException::forRecordNotFound();
@@ -99,16 +108,23 @@ class PostController extends ResourceController
      */
     public function create():ResponseInterface
     {
-        if (!$this->validate($this->rules['create'])) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
+        try {
+
+            if (!$this->validate($this->rules['create'])) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+    
+            $id = $this->model->insert((array) $this->request->getJson(), true);
+    
+            return $this->respond([
+                'status' => $id,
+                'message' => $id ? 'Post created successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $id = $this->model->insert((array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'Post created successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -118,24 +134,30 @@ class PostController extends ResourceController
      */
     public function update($id = null):ResponseInterface
     {
+        try {
 
-        if($id == null){
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+    
+            if (!$this->validate($this->rules['update']) && $this->request->is('put')) {
+                return $this->respond(['error'=> $this->validator->getErrors()], 403);
+            }
+    
+            $id = $this->model->update($id, (array) $this->request->getJson(), true);
+    
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $id,
+                'message' => $id ? 'Post updated successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        if (!$this->validate($this->rules['update']) && $this->request->is('put')) {
-            return $this->respond(['error'=> $this->validator->getErrors()], 403);
-        }
-
-        $id = $this->model->update($id, (array) $this->request->getJson(), true);
-
-        return $this->respond([
-            'status' => $id,
-            'message' => $id ? 'Post updated successfully' : "Something went wrong"
-        ], 200);
     }
 
     /**
@@ -145,18 +167,25 @@ class PostController extends ResourceController
      */
     public function delete($id = null):ResponseInterface
     {
-        if($id == null){
+        try {
+
+            if($id == null){
+                return $this->respond([
+                    'status' => 0,
+                    'message' => "Invalid request..."
+                ], 403);
+            }
+    
+            $deleted = $this->model->delete($id);
+    
             return $this->respond([
-                'status' => 0,
-                'message' => "Invalid request..."
-            ], 403);
+                'status' => $deleted,
+                'message' => $deleted ? 'Post deleted successfully' : "Something went wrong"
+            ], 200);
+            
+        } catch (\Throwable $th) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $th]);
+            return $this->respond(['error'=>$th->getMessage()], http_exception_code($th->getCode()));
         }
-
-        $deleted = $this->model->delete($id);
-
-        return $this->respond([
-            'status' => $deleted,
-            'message' => $deleted ? 'Post deleted successfully' : "Something went wrong"
-        ], 200);
     }
 }
