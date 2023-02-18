@@ -1,25 +1,41 @@
-# Project: Codeigniter Placrholder Api
+# Project: Codeigniter Placeholder Api
+Codeigniter Placeholder Api is a clone of json-placeholder-api by typicode and is an attempt to replicate all the resources provided by the original. The main goal is to demostrate how one can build such a backend api in php with proper exception/error handling and clean code that is self explanatory and follows modern php standard. I used the codeingniter 4 framework as it provides a minimal base structure the helps speed up the developement process.
 # 📁 Collection: User Resource 
 
 
 ## End-point: Get Users
+The endpoint returns a collection of users based on the parameters provided and allows you to sort, query and paginate the results.
 ### Method: GET
 >```
 >http://codeigniterplaceholderapi.test/api/users
 >```
 ### Query Params
 
-|Param|value|
+|Param|Possible values|
 |---|---|
-|sort_by|email|
-|sort|desc|
-|query|will|
-|limit|3|
-|page|2|
+|sort_by|id, user_name, first_name, last_name, email|
+|sort|asc, desc|
+|query|Search term|
+|limit|Number of record default 10|
+|page|Page number|
 
 
+### Response: 200
+```json
+[
+    {
+        "id": "1",
+        "user_name": "thalia.legros",
+        "first_name": "Lori",
+        "last_name": "Hills",
+        "email": "clare62@ratke.com"
+    },
+    ....
+]
+```
 
-⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃ ⁃
+
+#
 
 ## End-point: Get User
 ### Method: GET
@@ -142,7 +158,7 @@
 ## End-point: Get Albums
 ### Method: GET
 >```
->http://codeigniterplaceholderapi.test/api/albums?sort_by=title&sort=desc&query=vel&limit=3&page=2
+>http://codeigniterplaceholderapi.test/api/albums?sort_by=title&sort=desc&query=vel&limit=3&page=2&user_id=2
 >```
 ### Query Params
 
@@ -153,6 +169,7 @@
 |query|vel|
 |limit|3|
 |page|2|
+|user_id|2|
 
 
 

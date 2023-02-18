@@ -58,7 +58,7 @@ class Format extends BaseConfig
      * @var array<string, int>
      */
     public array $formatterOptions = [
-        'application/json' => JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+        'application/json' => JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK,
         'application/xml'  => 0,
         'text/xml'         => 0,
     ];

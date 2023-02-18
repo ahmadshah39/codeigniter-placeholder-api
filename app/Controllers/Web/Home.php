@@ -7,8 +7,8 @@ class Home extends BaseController
 {
     public function index() 
     {
-        // xdebug_info();
-        // exit;
+        phpinfo();
+        exit;
         return view('welcome_message');
     }
     public function data()
