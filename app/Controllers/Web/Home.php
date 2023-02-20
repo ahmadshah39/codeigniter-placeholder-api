@@ -7,12 +7,8 @@ class Home extends BaseController
 {
     public function index() 
     {
-        phpinfo();
+        echo 'welcome to codeigniter placeholder api';
         exit;
-        return view('welcome_message');
-    }
-    public function data()
-    {
-        echo 'hello';
+        // return view('welcome_message');
     }
 }
